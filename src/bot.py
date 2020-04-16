@@ -6,20 +6,22 @@ from rlbot.utils.structures.game_data_struct import GameTickPacket
 from util.orientation import Orientation
 from util.vec import Vec3
 
-
+# TODO: Pitch nose up more before flipping
 class MyBot(BaseAgent):
     kickoff_minimum_boost = 0 #How much boost to save from the kickoff. 
-    kickoff_minimum_speed = 2250 #Uses boost if under this speed.
+    kickoff_minimum_speed = 2300 #Uses boost if under this speed.
 
     
-    kickoff_initial_jump_hold = 1 #Number of ticks to hold jump for the first jump of the speedflip. Value of 1 indicates tap jump. 
-    kickoff_speedflip_delay = 1 #Number of ticks between the first jump and the flip. Value of 1 indicates minimum delay.
-    kickoff_speedflip_yaw = -0.1 #sixteenth flip angle (left by default)
-    kickoff_flipcancel_duration = 30 #How many ticks to hold flip cancel. Value of 1 indicates a 1-tick flip cancel. 
+    kickoff_initial_jump_hold = 10 #Number of ticks to hold jump for the first jump of the speedflip. Value of 1 indicates tap jump. 
+    kickoff_speedflip_delay = 10 #Number of ticks between the first jump and the flip. Value of 1 indicates minimum delay.
+    kickoff_speedflip_yaw = -0.20 #sixteenth flip angle (left by default)
+    kickoff_flipcancel_duration = 100 #How many ticks to hold flip cancel. Value of 1 indicates a 1-tick flip cancel. 
+    kickoff_airroll_delay = 10 #Ticks between flip cancel and air roll recovery. Value of 1 means air roll is pressed the tick after the flip. 
+    kickoff_airroll_duration = 50 #How long to hold air roll
 
     kickoff_duration_side = 150 #How many alotted ticks the bot has to execute the kickoff
     kickoff_initial_turn_duration_side = 5 #How long the initial turn is
-    kickoff_speedflip_starting_tick_side = 20 #The bot will speedflip on this tick. 
+    kickoff_speedflip_starting_tick_side = 30 #The bot will speedflip on this tick. 
     kickoff_coast_duration_side = 50 #How many ticks to drive before starting flip into ball. 
     kickoff_5050_delay_side = 5 #How many ticks between the jump and the flip into the ball. 
 
@@ -117,9 +119,12 @@ def execute_scenario_side(self, packet, right):
     else:
         self.controller_state.steer = 0.0
 
-    #Jump with hold
+    #Jump with hold. Gets automatically held for 3 frames
     if(self.tickCounter >= MyBot.kickoff_speedflip_starting_tick_side and self.tickCounter < MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_initial_jump_hold):
         self.controller_state.jump = True
+        self.controller_state.pitch = 1.0
+
+    #Nose up slightly at the beginning of the jump
 
     #Hold direction 1 tick before sixteenth flip
     if(self.tickCounter == MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_speedflip_delay):
@@ -137,13 +142,21 @@ def execute_scenario_side(self, packet, right):
         self.controller_state.jump = True
 
     #Flip cancel
-    if(self.tickCounter >= MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_speedflip_delay + 2 and self.tickCounter < MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_speedflip_delay + 2 + MyBot.kickoff_flipcancel_duration): # Immediate flip cancel
+    startFlipCancel = MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_speedflip_delay + 2
+    if(self.tickCounter >= startFlipCancel and self.tickCounter < startFlipCancel + MyBot.kickoff_flipcancel_duration): # Immediate flip cancel
         self.controller_state.pitch = 1.0
+
+    #Air roll
+    startAirRoll = MyBot.kickoff_speedflip_starting_tick_side + MyBot.kickoff_speedflip_delay + 1 + MyBot.kickoff_airroll_delay 
+    if(self.tickCounter >= startAirRoll and self.tickCounter < startAirRoll + MyBot.kickoff_airroll_duration): # Delayed air roll recovery
         self.controller_state.roll = -1.0
         if(right):
             self.controller_state.roll = 1.0
         
-
+        
+    #Drift
+    if(self.tickCounter >= startAirRoll and self.tickCounter < MyBot.kickoff_duration_side):
+        self.controller_state.handbrake = True
 
     #End
 
